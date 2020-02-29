@@ -1,0 +1,38 @@
+#!/bin/bash
+
+echo "Se estan relevando el estado actual de la configuracion del servidor"
+echo ""
+CPUMODEL=`cat /proc/cpuinfo | grep "model name" | sed 's/.*://' | tr -d ' ' | head -1`
+CPUCORES=`cat /proc/cpuinfo | grep "cpu cores" | head -1 | awk '{print $4}'`
+PROCESOS=`ps | jq -sR '[sub("\n$";"") | splits("\n") | sub("^ +";"") | [splits(" +")]] | .[0] as $header | .[1:] | [.[] | [. as $x | range($header | length) | {"key": $header[.], "value": $x[.]}] | from_entries]'`
+SESSION=`who`
+SO=`uname -a`
+VERSION=`uname -r`
+IP=`ip addr | awk '/enp0s3/{getline;getline; print $2}'`
+DATE=`date +%y%m%d`
+echo "Datos relevados:"
+echo ""
+echo "Sistema operativo:"" "$SO
+echo "Version:"" "$VERSION
+echo "Modelo de CPU:"" "$CPUMODEL
+echo "Cores de CPU:"" "$CPUCORES
+echo "Procesos activos:"" "$PROCESOS
+echo "Sesiones activas:"" "$SESSION
+echo "IP:"" "$IP
+echo ""
+
+ARCHIVO=/tmp/RESULTADO.json 
+echo "{" > $ARCHIVO
+        echo '"CPUMODEL"':"\"$CPUMODEL\"," >> $ARCHIVO
+        echo '"CPUCORES"':"\"$CPUCORES\"," >> $ARCHIVO
+        echo '"PROCESOS"':$PROCESOS"," >> $ARCHIVO
+        echo '"SESSION"':"\"$SESSION\"," >> $ARCHIVO
+        echo '"SO"':"\"$SO\"," >> $ARCHIVO
+        echo '"VERSION"':"\"$VERSION\"," >> $ARCHIVO
+        echo '"DATE"':"\"$DATE\"," >> $ARCHIVO
+        echo '"IP"':"\"$IP\"" >> $ARCHIVO
+echo "}" >> $ARCHIVO
+
+`curl -s -i -X POST localhost:5000/servidor -H 'content-type: application/json' --data-binary "@/tmp/RESULTADO.json" --output /dev/null -m 10`
+echo "Datos enviados"
+
